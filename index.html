@@ -609,41 +609,26 @@
             updateUI();
         }
         
-        function completeGenerationAndContinue() {
-            // This function is called AFTER a reflection modal is closed
-            runReproduction();
-            generation++;
-            drawPopulation();
-            updateChart();
-            
-            if (population.length === 0 && population2.length === 0) {
-                handleExtinction();
-                return;
-            }
-            
-            reflectionPaused = false;
-            startSimulation();
-        }
-
+        // --- NEWLY ADDED FUNCTION ---
         function nextGeneration() {
             if (!isRunning || reflectionPaused) return;
 
             // NEW: Check for end of simulation
-            if (generation >= 200) { // <-- CHANGED
+            if (generation >= 200) { 
                 pauseSimulation(true);
                 // Programmatically open the final quiz
-                quizButton.click(); 
-                updateGuide(guides.darwin, "The simulation has concluded after 300 generations. Please review the final quiz.");
+                quizButton.click(); // Simulate a click on the quiz button
                 return;
             }
 
             // --- Check for Reflection Points FIRST ---
+            // This pauses the generation *before* reproduction
             if (generation === 20 && !reflectionCompleted.gen20) {
                 reflectionPaused = true;
                 reflectionCompleted.gen20 = true;
                 pauseSimulation(true);
                 showReflection(
-                    "Reflection", // <-- CHANGED
+                    "Reflection", 
                     "You've been preying on the creatures! When a predator (you) removes creatures that are easy to see, and the population's traits change over time as a result, what is this process called?",
                     [
                         { text: "Genetic Drift", correct: false, feedback: "Not quite. Genetic drift is about random chance, but this is a consistent pressure." },
@@ -651,7 +636,7 @@
                         { text: "Mutation", correct: false, feedback: "Incorrect. Mutation introduces new traits, but it doesn't explain why *this* trait is becoming more common." }
                     ]
                 );
-                return;
+                return; // Stop here, wait for modal to call completeGenerationAndContinue
             }
             if (generation === 50 && !reflectionCompleted.gen50) {
                 reflectionPaused = true;
@@ -659,7 +644,7 @@
                 pauseSimulation(true);
                 triggerCatastrophe(); // This now also changes the environment
                 showReflection(
-                    "Reflection", // <-- CHANGED
+                    "Reflection", 
                     "A catastrophe just wiped out most of the population AND changed the environment! The survivors are random, not necessarily the 'fittest'. This drastic reduction in genetic diversity by a random event is called:",
                     [
                         { text: "Natural Selection", correct: false, feedback: "Incorrect. Natural selection is about fitness, but this event was random." },
@@ -675,7 +660,7 @@
                 pauseSimulation(true);
                 changeEnvironment(); 
                 showReflection(
-                    "Reflection", // <-- CHANGED
+                    "Reflection", 
                     "The environment just changed! The creatures that were once well-camouflaged may now be easy to see. The process by which a population becomes better suited to its environment over many generations is called:",
                     [
                         { text: "Genetic Drift", correct: false, feedback: "Not this time. Genetic drift is random. This is a response to a *specific* environmental pressure." },
@@ -691,7 +676,7 @@
                 pauseSimulation(true);
                 triggerSpeciation(); // This now creates a 2nd environment
                 showReflection(
-                    "Reflection", // <-- CHANGED
+                    "Reflection", 
                     "A 'river' has split the population! A small group is now isolated in a *new environment*. Because they are geographically separated and face different selective pressures, they will evolve independently. This is called:",
                     [
                         { text: "Allopatric Speciation", correct: true, feedback: "Correct! 'Allo-' means 'other' and '-patric' means 'homeland'. They are in 'other homelands' and will now evolve independently." },
@@ -713,14 +698,28 @@
                 handleExtinction();
                 return;
             }
+        }
+        
+        // --- FUNCTION CLEANED UP ---
+        function completeGenerationAndContinue() {
+            // This function is called AFTER a reflection modal is closed
+            // It runs the reproduction part of the generation that was paused
+            runReproduction();
             
-            // --- Automated Environmental Changes ---
-            if (generation > 30 && generation % 70 === 0 && !reflectionCompleted.gen100) { 
-                changeEnvironment();
+            // Increment generation and update stats
+            generation++;
+            drawPopulation();
+            updateChart();
+            
+            // Check for game over
+            if (population.length === 0 && population2.length === 0) {
+                handleExtinction();
+                return;
             }
-            if (generation > 40 && generation % 50 === 0 && !isSpeciationActive && !reflectionCompleted.gen50) { 
-                triggerCatastrophe();
-            }
+            
+            // Restart the loop
+            reflectionPaused = false;
+            startSimulation(); // Always try to resume
         }
         
         function runReproduction() {
@@ -1054,5 +1053,8 @@
 
 </body>
 </html>
+
+
+
 
 
