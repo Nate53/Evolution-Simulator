@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolution Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .guide-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #4a5568;
+        }
+        canvas {
+            background-color: #eee;
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 24px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        /* Chart container */
+        #chartContainer {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        /* Generation Counter HUD */
+        #generationCounterDisplay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0,0,0,0.6);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 50;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Generation Counter HUD -->
+    <div id="generationCounterDisplay">
+        Generation: <span id="generationCounter" class="font-bold">0</span>
+    </div>
+
+    <div class="max-w-7xl mx-auto p-4 relative">
+        <h1 class="text-3xl font-bold text-center text-gray-900 mb-4">Evolutionary Landscape Simulator</h1>
+        
+        <div class="flex flex-col lg:flex-row gap-4">
+            
+            <!-- Left Column: Simulation Canvas & Guides --><div class="lg:w-2/3 flex flex-col gap-4">
+                <!-- Simulation Canvas --><div class="aspect-[4/3] bg-white rounded-lg shadow-lg overflow-hidden">
+                    <canvas id="evolutionCanvas"></canvas>
+                </div>
+
+                <!-- Your Guides --><div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="text-xl font-semibold mb-3 text-gray-900">Your Guides</h3>
+                    <div class="flex items-center gap-4">
+                        <img id="guideAvatar" src="https://placehold.co/100x100/a1a1aa/ffffff?text=CD" alt="Charles Darwin" class="guide-avatar">
+                        <div>
+                            <h4 id="guideName" class="font-bold text-lg text-gray-800">Charles Darwin</h4>
+                            <p id="guideMessage" class="text-gray-700 italic">Welcome! Press "Start" to begin the simulation.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Controls & Data --><div class="lg:w-1/3 flex flex-col gap-4">
+                <!-- Controls --><div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-900">Simulation Controls</h3>
+                    <div class="space-y-4">
+                        <div class="flex gap-2">
+                            <button id="startButton" class="flex-1 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-blue-700 transition-colors">Start</button>
+                            <button id="pauseButton" class="flex-1 bg-yellow-500 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-yellow-600 transition-colors" disabled>Pause</button>
+                            <button id="resetButton" class="flex-1 bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-red-700 transition-colors">Reset</button>
+                        </div>
+                        <div>
+                            <label for="speedSlider" class="block text-sm font-medium text-gray-700">Generation Speed: <span id="speedLabel">Normal</span></label>
+                            <input type="range" id="speedSlider" min="1" max="5" value="3" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>Very Fast</span>
+                                <span>Fast</span>
+                                <span>Normal</span>
+                                <span>Slow</span>
+                                <span>Very Slow</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="mutationSlider" class="block text-sm font-medium text-gray-700">Mutation Rate: <span id="mutationLabel">Medium</span></label>
+                            <input type="range" id="mutationSlider" min="0" max="10" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                            <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>None</span>
+                                <span>Medium</span>
+                                <span>High</span>
+                            </div>
+                        </div>
+                        <button id="quizButton" class="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-indigo-700 transition-colors">Final Quiz</button>
+                    </div>
+                </div>
+
+                <!-- Population Analysis --><div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-900">Population Composition Over Time</h3>
+                    <div id="chartContainer">
+                        <canvas id="populationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reflection Modal --><div id="reflectionModal" class="modal">
+        <div class="modal-content">
+            <h2 id="reflectionTitle" class="text-2xl font-bold mb-4">Reflection Point</h2>
+            <p id="reflectionQuestion" class="text-gray-700 mb-4">This is the reflection question.</p>
+            <div id="reflectionOptions" class="space-y-2">
+                <!-- Options will be injected here --></div>
+            <p id="reflectionFeedback" class_name="mt-4 font-medium"></p>
+            <button id="reflectionClose" class="mt-4 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-blue-700 transition-colors">Continue</button>
+        </div>
+    </div>
+
+    <!-- Final Quiz Modal --><div id="finalQuizModal" class="modal">
+        <div class="modal-content overflow-y-auto max-h-[80vh]">
+            <h2 class="text-2xl font-bold mb-4">Final Quiz & Reflection</h2>
+            <div id="quizContent" class="space-y-4">
+                <!-- Question 1 --><div class_name="q-block">
+                    <p class="font-semibold">1. When a predator (you) consistently removes creatures of a specific color, and the population's average color changes over time, this is an example of...</p>
+                    <div class="space-y-1 mt-2">
+                        <label class="block"><input type="radio" name="q1" value="a"> a) Genetic Drift</label>
+                        <label class="block"><input type="radio" name="q1" value="b"> b) Natural Selection</label>
+                        <label class="block"><input type="radio" name="q1" value="c"> c) Mutation</label>
+                        <label class="block"><input type="radio" name="q1" value="d"> d) Allopatric Speciation</label>
+                    </div>
+                    <p data-feedback="q1" class="hidden mt-1 text-sm font-medium"></p>
+                </div>
+                <!-- Question 2 --><div class="q-block">
+                    <p class="font-semibold">2. A "catastrophe" that randomly wipes out most of the population, regardless of their color or fitness, is a powerful example of...</p>
+                    <div class="space-y-1 mt-2">
+                        <label class="block"><input type="radio" name="q2" value="a"> a) Natural Selection</label>
+                        <label class="block"><input type="radio" name="q2" value="b"> b) Adaptation</label>
+                        <label class="block"><input type="radio" name="q2" value="c"> c) Genetic Drift (specifically a bottleneck)</label>
+                        <label class="block"><input type="radio" name="q2" value="d"> d) Mutation</label>
+                    </div>
+                    <p data-feedback="q2" class="hidden mt-1 text-sm font-medium"></p>
+                </div>
+                <!-- Question 3 --><div class="q-block">
+                    <p class="font-semibold">3. The appearance of a new color in the population that was not there before is caused by...</p>
+                    <div class="space-y-1 mt-2">
+                        <label class="block"><input type="radio" name="q3" value="a"> a) Mutation</label>
+                        <label class="block"><input type="radio" name="q3" value="b"> b) Natural Selection</label>
+                        <label class="block"><input type="radio" name="q3" value="c"> c) Genetic Drift</label>
+                        <label class="block"><input type="radio" name="q3" value="d"> d) Adaptation</label>
+                    </div>
+                    <p data-feedback="q3" class="hidden mt-1 text-sm font-medium"></p>
+                </div>
+                <!-- Question 4 --><div class="q-block">
+                    <p class="font-semibold">4. When the "river" split the population and the two groups began evolving different traits (like leg number and color) due to different environments, this process is called...</p>
+                    <div class="space-y-1 mt-2">
+                        <label class="block"><input type="radio" name="q4" value="a"> a) A Genetic Bottleneck</label>
+                        <label class="block"><input type="radio" name="q4" value="b"> b) Divergent Evolution (leading to Speciation)</label>
+                        <label class="block"><input type="radio" name="q4" value="c"> c) Sympatric Speciation</label>
+                        <label class="block"><input type="radio" name="q4" value="d"> d) Genetic Drift</label>
+                    </div>
+                    <p data-feedback="q4" class="hidden mt-1 text-sm font-medium"></p>
+                </div>
+
+                <!-- Essay Question --><div>
+                    <label for="essayQuestion" class="font-semibold block mb-2">5. In your own words, describe the difference between natural selection and genetic drift, using examples from this simulation.</label>
+                    <textarea id="essayQuestion" rows="5" class="w-full p-2 border border-gray-300 rounded-lg" placeholder="Type your reflection here..."></textarea>
+                </div>
+            </div>
+            <div class="mt-6 flex gap-4">
+                <button id="quizSubmitButton" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-blue-700 transition-colors">Submit Answers</button>
+                <button id="quizCloseButton" class="bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-gray-600 transition-colors">Close & Play</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Guide Report Modal --><div id="guideModal" class="modal">
+        <div class="modal-content">
+            <div class="flex items-center gap-4 mb-4">
+                <img id="guideModalAvatar" src="https://placehold.co/100x100/a1a1aa/ffffff?text=CD" alt="Charles Darwin" class="guide-avatar">
+                <div>
+                    <h2 id="guideModalName" class="text-2xl font-bold">A Note from Charles Darwin</h2>
+                </div>
+            </div>
+            <p id="guideModalText" class="text-gray-700 mb-4">This is the guide's message.</p>
+            <button id="guideModalClose" class="mt-4 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-blue-700 transition-colors">Continue Simulation</button>
+        </div>
+    </div>
+
+
+    <script type="module">
+        // --- Firebase (Not used in this sim, but good practice for web apps) ---
+        // We'll use local state for this simulation.
+        
+        // --- DOM Elements ---
+        const canvas = document.getElementById('evolutionCanvas');
+        const ctx = canvas.getContext('2d');
+        const startButton = document.getElementById('startButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const resetButton = document.getElementById('resetButton');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedLabel = document.getElementById('speedLabel');
+        const mutationSlider = document.getElementById('mutationSlider');
+        const mutationLabel = document.getElementById('mutationLabel');
+        const generationCounter = document.getElementById('generationCounter'); // This ID is now in the HUD
+        const guideAvatar = document.getElementById('guideAvatar');
+        const guideName = document.getElementById('guideName');
+        const guideMessage = document.getElementById('guideMessage');
+        const quizButton = document.getElementById('quizButton');
+        const finalQuizModal = document.getElementById('finalQuizModal');
+        const quizCloseButton = document.getElementById('quizCloseButton');
+        const quizSubmitButton = document.getElementById('quizSubmitButton');
+        const reflectionModal = document.getElementById('reflectionModal');
+        const reflectionTitle = document.getElementById('reflectionTitle');
+        const reflectionQuestion = document.getElementById('reflectionQuestion');
+        const reflectionOptions = document.getElementById('reflectionOptions');
+        const reflectionFeedback = document.getElementById('reflectionFeedback');
+        const reflectionClose = document.getElementById('reflectionClose');
+        const guideModal = document.getElementById('guideModal');
+        const guideModalAvatar = document.getElementById('guideModalAvatar');
+        const guideModalName = document.getElementById('guideModalName');
+        const guideModalText = document.getElementById('guideModalText');
+        const guideModalClose = document.getElementById('guideModalClose');
+
+        // --- Simulation State ---
+        let population = [];
+        let population2 = []; // For speciation
+        let isSpeciationActive = false;
+        let riverPosition = 0;
+        let generation = 0;
+        let isRunning = false;
+        let simulationInterval;
+        let generationSpeed = 1000; // ms per generation
+        let mutationRate = 0.05; // 5% chance
+        const initialPopulationSize = 100;
+        const creatureRadius = 8;
+        let backgroundColor = '#8DB600'; // Forest Green
+        let backgroundColor2 = null; // For 2nd environment
+        let popChart;
+        let reflectionPaused = false;
+        let reflectionCompleted = {
+            gen20: false, gen50: false, gen100: false, gen120: false
+        };
+        let guideReportCompleted = {
+            mutation: false, environment: false, extinction: false
+        };
+
+        // --- Color Palette ---
+        const limitedPalette = [
+            { name: "Forest Green", hex: "#8DB600" }, // Start color 1 (initial background)
+            { name: "Tawny Brown", hex: "#a87754" }, // Start color 2
+            { name: "Crimson", hex: "#d9534f" },     // Mutation 1
+            { name: "Sky Blue", hex: "#5bc0de" },      // Mutation 2
+            { name: "Royal Purple", hex: "#6e54a8" }, // Mutation 3
+            { name: "Slate Gray", hex: "#778899" }      // Mutation 4
+        ];
+        let availableColors = [limitedPalette[0].hex, limitedPalette[1].hex];
+        let colorMap = {};
+        limitedPalette.forEach(c => { colorMap[c.hex] = c.name });
+
+        // --- Guides ---
+        const guides = {
+            darwin: {
+                name: "Charles Darwin",
+                avatar: "https://placehold.co/100x100/a1a1aa/ffffff?text=CD"
+            },
+            wallace: {
+                name: "Alfred Russel Wallace",
+                avatar: "https://placehold.co/100x100/8d8d8d/ffffff?text=ARW"
+            }
+        };
+
+        // --- Initialization ---
+        function init() {
+            resizeCanvas();
+            initializeChart();
+            resetSimulation();
+        }
+
+        function resizeCanvas() { 
+            canvas.width = canvas.offsetWidth; 
+            canvas.height = canvas.offsetHeight; 
+        }
+
+        function resetSimulation() {
+            isRunning = false;
+            clearInterval(simulationInterval);
+            generation = 0;
+            population = [];
+            population2 = [];
+            isSpeciationActive = false;
+            backgroundColor = limitedPalette[0].hex; // Reset to Forest Green
+            backgroundColor2 = null;
+            availableColors = [limitedPalette[0].hex, limitedPalette[1].hex];
+            
+            // Reset state
+            reflectionCompleted = { gen20: false, gen50: false, gen100: false, gen120: false };
+            guideReportCompleted = { mutation: false, environment: false, extinction: false };
+            reflectionPaused = false;
+
+            for (let i = 0; i < initialPopulationSize; i++) {
+                population.push(createCreature(0, canvas.width));
+            }
+            
+            updateUI();
+            drawPopulation();
+            
+            // Reset chart
+            if (popChart) {
+                popChart.destroy();
+            }
+            initializeChart();
+            updateChart(); // Call updateChart *after* initializing
+            
+            updateGuide(guides.darwin, `Welcome! Press "Start" to begin the simulation.`);
+        }
+
+        function createCreature(minX, maxX, parentColor = null) {
+            let color;
+            // Mutation logic
+            if (parentColor && Math.random() < mutationRate) {
+                // Introduce a new color from the palette if available
+                if (availableColors.length < limitedPalette.length) {
+                    let newColorObj = limitedPalette[availableColors.length];
+                    availableColors.push(newColorObj.hex);
+                    color = newColorObj.hex;
+                    
+                    // Trigger one-time guide report on first mutation (after gen 10)
+                    if (!guideReportCompleted.mutation && generation >= 10) {
+                        triggerGuideReport(
+                            guides.wallace, 
+                            "A Note from Mr. Wallace", 
+                            "Aha! A mutation has occurred! A new creature color has appeared in the population. These random changes are the raw material for evolution. Let's see how this new trait fares."
+                        );
+                        guideReportCompleted.mutation = true;
+                    }
+                } else {
+                    // Palette is full, mutate to a random *existing* color (that isn't the parent's)
+                    let otherColors = availableColors.filter(c => c !== parentColor);
+                    color = otherColors[Math.floor(Math.random() * otherColors.length)] || parentColor;
+                }
+            } else if (parentColor) {
+                color = parentColor;
+            } else {
+                // Initial population
+                color = availableColors[Math.floor(Math.random() * availableColors.length)];
+            }
+            
+            return {
+                x: Math.random() * (maxX - minX) + minX,
+                y: Math.random() * canvas.height,
+                color: color,
+                fitness: 0.5 // Default fitness
+            };
+        }
+
+        // --- Drawing & Charting ---
+        
+        function drawCreature(ctx, x, y, color, legCount = 8, creatureBg = backgroundColor) {
+            const r = creatureRadius; // r is 8
+            
+            let fillColor = color;
+            let strokeColor = color; // Legs and body are same color
+
+            if (color === creatureBg) {
+                // If camouflaged, use a slightly different shade so students can see it.
+                switch (creatureBg) {
+                    case limitedPalette[0].hex: // Forest Green
+                        fillColor = '#6B8E23'; break; // Darker Green
+                    case limitedPalette[1].hex: // Tawny Brown
+                        fillColor = '#b88764'; break; // Lighter Brown
+                    case limitedPalette[2].hex: // Crimson
+                        fillColor = '#b34743'; break; // Darker Red
+                    case limitedPalette[3].hex: // Sky Blue
+                        fillColor = '#4ab0c9'; break; // Darker Blue
+                    case limitedPalette[4].hex: // Royal Purple
+                        fillColor = '#5a468a'; break; // Darker Purple
+                    case limitedPalette[5].hex: // Slate Gray
+                        fillColor = '#667788'; break; // Darker Gray
+                    default:
+                        fillColor = color;
+                }
+                strokeColor = fillColor; // Legs match the new fill color
+            }
+            
+            ctx.fillStyle = fillColor; 
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 1.5; // Thinner legs
+
+            // Body (oval, 6 wide, 8 tall)
+            ctx.beginPath();
+            ctx.ellipse(x, y, r * 0.75, r, 0, 0, Math.PI * 2); 
+            ctx.fill();
+            
+            // Reset line width for legs
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = strokeColor; // Ensure strokeStyle is set for legs
+
+            // Leg calculations
+            const legLength = r; // 8
+            const xOff = r * 0.6; // 4.8
+            const yOff1 = r * 0.3; // 2.4
+            const yOff2 = r * 0.7; // 5.6
+
+            // Left Legs
+            ctx.beginPath();
+            ctx.moveTo(x - xOff, y - yOff1);
+            ctx.lineTo(x - xOff - legLength, y - yOff1 - legLength / 2);
+            ctx.moveTo(x - xOff, y + yOff1);
+            ctx.lineTo(x - xOff - legLength, y + yOff1 + legLength / 2);
+            if (legCount === 8) {
+                ctx.moveTo(x - xOff / 2, y - yOff2);
+                ctx.lineTo(x - xOff / 2 - legLength / 1.5, y - yOff2 - legLength / 1.5);
+                ctx.moveTo(x - xOff / 2, y + yOff2);
+                ctx.lineTo(x - xOff / 2 - legLength / 1.5, y + yOff2 + legLength / 1.5);
+            }
+            ctx.stroke();
+            
+            // Right Legs
+            ctx.beginPath();
+            ctx.moveTo(x + xOff, y - yOff1);
+            ctx.lineTo(x + xOff + legLength, y - yOff1 - legLength / 2);
+            ctx.moveTo(x + xOff, y + yOff1);
+            ctx.lineTo(x + xOff + legLength, y + yOff1 + legLength / 2);
+            if (legCount === 8) {
+                ctx.moveTo(x + xOff / 2, y - yOff2);
+                ctx.lineTo(x + xOff / 2 + legLength / 1.5, y - yOff2 - legLength / 1.5);
+                ctx.moveTo(x + xOff / 2, y + yOff2);
+                ctx.lineTo(x + xOff / 2 + legLength / 1.5, y + yOff2 + legLength / 1.5);
+            }
+            ctx.stroke();
+        }
+
+        function drawPopulation() {
+            // Main background (Pop 1)
+            ctx.fillStyle = backgroundColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if(isSpeciationActive) {
+                // Draw the new environment for pop2
+                ctx.fillStyle = backgroundColor2;
+                ctx.fillRect(riverPosition + 10, 0, canvas.width - (riverPosition + 10), canvas.height);
+
+                // River
+                ctx.fillStyle = '#60a5fa'; // River color
+                ctx.fillRect(riverPosition - 10, 0, 20, canvas.height);
+                
+                // Draw pop2
+                population2.forEach(c => {
+                    drawCreature(ctx, c.x, c.y, c.color, 4, backgroundColor2); // 4 legs, check vs BG 2
+                });
+            }
+            
+            // Draw pop1
+            population.forEach(c => {
+                drawCreature(ctx, c.x, c.y, c.color, 8, backgroundColor); // 8 legs, check vs BG 1
+            });
+        }
+
+        function initializeChart() {
+            const chartCtx = document.getElementById('populationChart').getContext('2d');
+            popChart = new Chart(chartCtx, {
+                type: 'line', 
+                data: {
+                    labels: [0],
+                    datasets: [] // Datasets will be added dynamically
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            stacked: true, // Stacked area chart
+                            title: { display: true, text: 'Population Count' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Generation' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                    }
+                }
+            });
+        }
+
+        function updateChart() {
+            if (!popChart) return; // Guard against chart not being ready
+            
+            generationCounter.innerText = generation;
+            
+            // Only add a new label if it doesn't exist (for reset)
+            if (popChart.data.labels[popChart.data.labels.length - 1] !== generation) {
+                 popChart.data.labels.push(generation);
+            }
+
+            let allActiveColors = new Set([...availableColors, ...population.map(p => p.color), ...population2.map(p => p.color)]);
+            
+            allActiveColors.forEach(color => {
+                let dataset = popChart.data.datasets.find(ds => ds.label === colorMap[color]);
+                if (!dataset) {
+                    dataset = {
+                        label: colorMap[color],
+                        data: new Array(popChart.data.labels.length - 1).fill(0), // Fill past data with 0
+                        borderColor: color,
+                        backgroundColor: color + '80', // Add alpha for fill
+                        fill: true,
+                        tension: 0.1
+                    };
+                    popChart.data.datasets.push(dataset);
+                }
+                
+                // Count from both populations
+                const count1 = population.filter(c => c.color === color).length;
+                const count2 = population2.filter(c => c.color === color).length;
+                
+                // Add data
+                if (dataset.data.length < popChart.data.labels.length) {
+                    dataset.data.push(count1 + count2);
+                } else {
+                    // This handles the reset case (generation 0)
+                    dataset.data[0] = count1 + count2;
+                }
+            });
+
+            // Prune datasets that have died out
+            popChart.data.datasets = popChart.data.datasets.filter(ds => {
+                const lastCount = ds.data[ds.data.length - 1];
+                const colorHex = limitedPalette.find(p => p.name === ds.label)?.hex;
+                // Keep if count is > 0, or if it's one of the base available colors
+                return lastCount > 0 || (colorHex && availableColors.includes(colorHex));
+            });
+
+
+            if (popChart.data.labels.length > 50) {
+                popChart.data.labels.shift();
+                popChart.data.datasets.forEach(ds => ds.data.shift());
+            }
+            popChart.update();
+        }
+
+        // --- Simulation Loop ---
+        function startSimulation() {
+            if (isRunning) return;
+            isRunning = true;
+            updateUI();
+            updateGuide(guides.darwin, "The simulation is running! Click on creatures to act as a predator.");
+            
+            clearInterval(simulationInterval); 
+            
+            simulationInterval = setInterval(() => {
+                if (!reflectionPaused) {
+                    nextGeneration();
+                }
+            }, generationSpeed);
+        }
+
+        function pauseSimulation(isReflection = false) {
+            if (!isRunning) return;
+            isRunning = false;
+            if (!isReflection) {
+                reflectionPaused = false; 
+                updateGuide(guides.wallace, "Simulation paused. Take a moment to observe the population.");
+            }
+            clearInterval(simulationInterval);
+            updateUI();
+        }
+        
+        function completeGenerationAndContinue() {
+            // This function is called AFTER a reflection modal is closed
+            runReproduction();
+            generation++;
+            drawPopulation();
+            updateChart();
+            
+            if (population.length === 0 && population2.length === 0) {
+                handleExtinction();
+                return;
+            }
+            
+            reflectionPaused = false;
+            startSimulation();
+        }
+
+        function nextGeneration() {
+            if (!isRunning || reflectionPaused) return;
+
+            // NEW: Check for end of simulation
+            if (generation >= 300) {
+                pauseSimulation(true);
+                // Programmatically open the final quiz
+                quizButton.click(); 
+                updateGuide(guides.darwin, "The simulation has concluded after 300 generations. Please review the final quiz.");
+                return;
+            }
+
+            // --- Check for Reflection Points FIRST ---
+            if (generation === 20 && !reflectionCompleted.gen20) {
+                reflectionPaused = true;
+                reflectionCompleted.gen20 = true;
+                pauseSimulation(true);
+                showReflection(
+                    "Reflection: Selection",
+                    "You've been preying on the creatures! When a predator (you) removes creatures that are easy to see, and the population's traits change over time as a result, what is this process called?",
+                    [
+                        { text: "Genetic Drift", correct: false, feedback: "Not quite. Genetic drift is about random chance, but this is a consistent pressure." },
+                        { text: "Natural Selection", correct: true, feedback: "Exactly! You are the 'selective pressure' favoring creatures that are harder to see." },
+                        { text: "Mutation", correct: false, feedback: "Incorrect. Mutation introduces new traits, but it doesn't explain why *this* trait is becoming more common." }
+                    ]
+                );
+                return;
+            }
+            if (generation === 50 && !reflectionCompleted.gen50) {
+                reflectionPaused = true;
+                reflectionCompleted.gen50 = true;
+                pauseSimulation(true);
+                triggerCatastrophe(); // This now also changes the environment
+                showReflection(
+                    "Reflection: Genetic Bottleneck",
+                    "A catastrophe just wiped out most of the population AND changed the environment! The survivors are random, not necessarily the 'fittest'. This drastic reduction in genetic diversity by a random event is called:",
+                    [
+                        { text: "Natural Selection", correct: false, feedback: "Incorrect. Natural selection is about fitness, but this event was random." },
+                        { text: "A Genetic Bottleneck", correct: true, feedback: "Correct! The population is 'squeezed' through a 'bottleneck', and the new population's traits are determined by the few lucky survivors." },
+                        { text: "Adaptation", correct: false, feedback: "Not really. Adaptation is the *result* of selection over time, not the random event itself." }
+                    ]
+                );
+                return;
+            }
+            if (generation === 100 && !reflectionCompleted.gen100) {
+                reflectionPaused = true;
+                reflectionCompleted.gen100 = true;
+                pauseSimulation(true);
+                changeEnvironment(); 
+                showReflection(
+                    "Reflection: Adaptation",
+                    "The environment just changed! The creatures that were once well-camouflaged may now be easy to see. The process by which a population becomes better suited to its environment over many generations is called:",
+                    [
+                        { text: "Genetic Drift", correct: false, feedback: "Not this time. Genetic drift is random. This is a response to a *specific* environmental pressure." },
+                        { text: "Allopatric Speciation", correct: false, feedback: "Incorrect. Speciation is about forming new species, usually involving isolation." },
+                        { text: "Adaptation", correct: true, feedback: "That's it! The population will now be 'selected' for new traits, forcing it to *adapt* to the new background color." }
+                    ]
+                );
+                return;
+            }
+            if (generation === 120 && !reflectionCompleted.gen120) {
+                reflectionPaused = true;
+                reflectionCompleted.gen120 = true;
+                pauseSimulation(true);
+                triggerSpeciation(); // This now creates a 2nd environment
+                showReflection(
+                    "Reflection: Allopatric Speciation",
+                    "A 'river' has split the population! A small group is now isolated in a *new environment*. Because they are geographically separated and face different selective pressures, they will evolve independently. This is called:",
+                    [
+                        { text: "Allopatric Speciation", correct: true, feedback: "Correct! 'Allo-' means 'other' and '-patric' means 'homeland'. They are in 'other homelands' and will now evolve independently." },
+                        { text: "A Genetic Bottleneck", correct: false, feedback: "While the small new population *is* a 'founder effect' (a type of bottleneck), the overall process is speciation." },
+                        { text: "Sympatric Speciation", correct: false, feedback: "Incorrect. 'Sym-' means 'same'. Sympatric speciation happens *within* the same homeland, which is much rarer." }
+                    ]
+                );
+                return;
+            }
+            
+            // --- If no reflection, run the generation normally ---
+            runReproduction();
+            
+            generation++;
+            drawPopulation();
+            updateChart();
+
+            if (population.length === 0 && population2.length === 0) {
+                handleExtinction();
+                return;
+            }
+            
+            // --- Automated Environmental Changes ---
+            if (generation > 30 && generation % 70 === 0 && !reflectionCompleted.gen100) { 
+                changeEnvironment();
+            }
+            if (generation > 40 && generation % 50 === 0 && !isSpeciationActive && !reflectionCompleted.gen50) { 
+                triggerCatastrophe();
+            }
+        }
+        
+        function runReproduction() {
+            // --- Fitness Calculation ---
+            calculateFitness(population, backgroundColor);
+            if (isSpeciationActive) {
+                calculateFitness(population2, backgroundColor2); // Check Pop2 against its own BG
+            }
+            
+            // --- Reproduction ---
+            if(isSpeciationActive) {
+                population = reproduce(population, initialPopulationSize, 0, riverPosition - 10);
+                let pop2TargetSize = Math.min(50, population2.length + 3); // Capped at 50
+                population2 = reproduce(population2, Math.max(5, pop2TargetSize), riverPosition + 10, canvas.width);
+            } else {
+                population = reproduce(population, initialPopulationSize, 0, canvas.width);
+            }
+        }
+
+        function calculateFitness(pop, bgColor) {
+            pop.forEach(c => {
+                c.fitness = (c.color === bgColor) ? 1.0 : 0.1;
+            });
+        }
+        
+        function reproduce(pop, targetSize, minX, maxX) {
+            let newPopulation = [];
+            let fitnessSum = pop.reduce((sum, c) => sum + c.fitness, 0);
+
+            if (fitnessSum === 0 || pop.length === 0) {
+                return [];
+            }
+
+            for (let i = 0; i < targetSize; i++) {
+                let parent = selectParent(pop, fitnessSum);
+                if (parent) {
+                    newPopulation.push(createCreature(minX, maxX, parent.color));
+                }
+            }
+            return newPopulation;
+        }
+
+        function selectParent(pop, fitnessSum) {
+            let rand = Math.random() * fitnessSum;
+            for (let i = 0; i < pop.length; i++) {
+                rand -= pop[i].fitness;
+                if (rand <= 0) {
+                    return pop[i];
+                }
+            }
+            return pop[pop.length - 1]; // Fallback
+        }
+        
+        function handleExtinction() {
+            pauseSimulation();
+            updateGuide(guides.darwin, "The population has gone extinct! A devastating outcome. Press 'Reset' to try again.");
+            if (!guideReportCompleted.extinction) {
+                triggerGuideReport(
+                    guides.darwin, 
+                    "A Tragic Outcome", 
+                    "Good heavens! The population has gone extinct. This can happen if a population cannot adapt quickly enough to a new environmental pressure, or if a catastrophe leaves too few survivors. This is a stark reminder of the fragility of life."
+                );
+                guideReportCompleted.extinction = true;
+            }
+        }
+
+        // --- Environmental Events ---
+        function changeEnvironment() {
+            let otherColors = limitedPalette.map(p => p.hex).filter(c => c !== backgroundColor);
+            backgroundColor = otherColors[Math.floor(Math.random() * otherColors.length)];
+            
+            // If speciation is active, change *both* BGs independently
+            if (isSpeciationActive) {
+                let otherColors2 = limitedPalette.map(p => p.hex).filter(c => c !== backgroundColor2);
+                backgroundColor2 = otherColors2[Math.floor(Math.random() * otherColors2.length)];
+            }
+            
+            drawPopulation(); 
+            
+            if (!guideReportCompleted.environment) {
+                triggerGuideReport(
+                    guides.darwin, 
+                    "A Change in the Landscape!", 
+                    "The environment has changed! Notice the new background color. Creatures that were once well-hidden may now be terribly conspicuous to predators. This is a powerful selective pressure!"
+                );
+                guideReportCompleted.environment = true;
+            }
+        }
+
+        function triggerCatastrophe() {
+            // Wipes out 80% of the population randomly
+            population = population.filter(() => Math.random() < 0.2);
+            if (isSpeciationActive) {
+                population2 = population2.filter(() => Math.random() < 0.2);
+            }
+            
+            // Also change the environment(s)
+            changeEnvironment();
+            
+            updateGuide(guides.wallace, "A catastrophe! The environment has changed and the population is decimated!");
+            drawPopulation(); // Redraw immediately
+        }
+        
+        function triggerSpeciation() {
+            isSpeciationActive = true;
+            riverPosition = canvas.width * 0.6; // 60% of the way across
+            
+            let founders = [];
+            let newMainland = [];
+            let founderCount = 0;
+            const maxFounders = 5;
+
+            population.forEach(c => {
+                if (c.x > riverPosition && founderCount < maxFounders) {
+                    c.x += 20; // Move them past the new river bank
+                    founders.push(c);
+                    founderCount++;
+                } else if (c.x > riverPosition) {
+                    // This creature is "killed" by the river
+                }
+                else {
+                    newMainland.push(c);
+                }
+            });
+            
+            population = newMainland;
+            population2 = founders;
+            
+            // Set a different background for the new population
+            let otherColors = limitedPalette.map(p => p.hex).filter(c => c !== backgroundColor);
+            backgroundColor2 = otherColors[Math.floor(Math.random() * otherColors.length)];
+
+            updateGuide(guides.darwin, "Speciation! A geographic barrier has isolated a small group in a new environment!");
+            drawPopulation(); // Redraw immediately
+        }
+
+        // --- UI & Event Handlers ---
+        function updateUI() {
+            if (isRunning) {
+                startButton.innerText = 'Play';
+                startButton.disabled = true;
+                pauseButton.disabled = false;
+                startButton.classList.replace('bg-blue-600', 'bg-gray-400');
+                startButton.classList.remove('hover:bg-blue-700');
+                pauseButton.classList.replace('bg-gray-400', 'bg-yellow-500');
+                pauseButton.classList.add('hover:bg-yellow-600');
+            } else {
+                startButton.innerText = 'Play';
+                startButton.disabled = false;
+                pauseButton.disabled = true;
+                startButton.classList.replace('bg-gray-400', 'bg-blue-600');
+                startButton.classList.add('hover:bg-blue-700');
+                pauseButton.classList.replace('bg-yellow-500', 'bg-gray-400');
+                pauseButton.classList.remove('hover:bg-yellow-600');
+            }
+        }
+
+        function updateGuide(guide, message) {
+            guideAvatar.src = guide.avatar;
+            guideName.innerText = guide.name;
+            guideMessage.innerText = message;
+        }
+        
+        function showReflection(title, question, options) {
+            reflectionTitle.innerText = title;
+            reflectionQuestion.innerText = question;
+            reflectionOptions.innerHTML = '';
+            reflectionFeedback.innerText = '';
+            reflectionFeedback.className = 'mt-4 font-medium';
+            
+            options.forEach((opt, index) => {
+                const button = document.createElement('button');
+                button.innerText = opt.text;
+                button.className = 'block w-full text-left p-2 border border-gray-300 rounded-lg hover:bg-gray-100';
+                button.onclick = () => {
+                    reflectionFeedback.innerText = opt.feedback;
+                    if (opt.correct) {
+                        reflectionFeedback.classList.add('text-green-600');
+                    } else {
+                        reflectionFeedback.classList.add('text-red-600');
+                    }
+                    reflectionOptions.querySelectorAll('button').forEach(btn => btn.disabled = true);
+                };
+                reflectionOptions.appendChild(button);
+            });
+            
+            reflectionModal.style.display = 'block';
+        }
+
+        reflectionClose.onclick = () => {
+            reflectionModal.style.display = 'none';
+            completeGenerationAndContinue();
+        };
+        
+        function triggerGuideReport(guide, title, text) {
+            pauseSimulation(true);
+            guideModalAvatar.src = guide.avatar;
+            guideModalName.innerText = title;
+            guideModalText.innerText = text;
+            guideModal.style.display = 'block';
+        }
+        
+        guideModalClose.onclick = () => {
+            guideModal.style.display = 'none';
+            reflectionPaused = false;
+            startSimulation();
+        }
+
+        // Slider Listeners
+        speedSlider.oninput = () => {
+            const speedMap = { '1': 3000, '2': 2000, '3': 1000, '4': 500, '5': 200 };
+            const labelMap = { '1': 'Very Slow', '2': 'Slow', '3': 'Normal', '4': 'Fast', '5': 'Very Fast' };
+            const reversedValue = 6 - speedSlider.value; // Reverse the slider
+            generationSpeed = speedMap[reversedValue];
+            speedLabel.innerText = labelMap[reversedValue];
+            
+            if (isRunning) {
+                clearInterval(simulationInterval);
+                simulationInterval = setInterval(() => {
+                    if (!reflectionPaused) {
+                        nextGeneration();
+                    }
+                }, generationSpeed);
+            }
+        };
+        speedSlider.dispatchEvent(new Event('input'));
+        
+        mutationSlider.oninput = () => {
+            mutationRate = mutationSlider.value / 100;
+            let label = 'Medium';
+            if (mutationSlider.value == 0) label = 'None';
+            if (mutationSlider.value > 7) label = 'High';
+            mutationLabel.innerText = label;
+        };
+        mutationSlider.dispatchEvent(new Event('input'));
+
+        // Button Listeners
+        startButton.onclick = () => {
+            if (reflectionPaused) {
+                reflectionPaused = false;
+            }
+            startSimulation();
+        };
+        pauseButton.onclick = () => pauseSimulation(false);
+        resetButton.onclick = resetSimulation;
+
+        // Predation by clicking
+        canvas.onclick = (e) => {
+            if (!isRunning) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            let clickedIndex = -1;
+            let clickedPopulation = null;
+
+            if (isSpeciationActive && x > riverPosition) {
+                clickedIndex = population2.findIndex(c => 
+                    Math.abs(c.x - x) < creatureRadius && Math.abs(c.y - y) < creatureRadius
+                );
+                if (clickedIndex > -1) clickedPopulation = population2;
+            } else {
+                clickedIndex = population.findIndex(c => 
+                    Math.abs(c.x - x) < creatureRadius && Math.abs(c.y - y) < creatureRadius
+                );
+                if (clickedIndex > -1) clickedPopulation = population;
+            }
+
+            if (clickedIndex > -1) {
+                clickedPopulation.splice(clickedIndex, 1);
+                drawPopulation();
+            }
+        };
+
+        // Final Quiz Logic
+        quizButton.onclick = () => {
+            pauseSimulation(true);
+            finalQuizModal.style.display = 'block';
+        };
+        
+        quizCloseButton.onclick = () => {
+            finalQuizModal.style.display = 'none';
+            // Only restart if the simulation hasn't ended
+            if (generation < 300) {
+                reflectionPaused = false;
+                startSimulation();
+            }
+        };
+
+        quizSubmitButton.onclick = () => {
+            const answers = {
+                q1: 'b',
+                q2: 'c',
+                q3: 'a',
+                q4: 'b' // Changed to 'b' for the new question
+            };
+            
+            for (let q in answers) {
+                const radios = document.getElementsByName(q);
+                const feedbackEl = document.querySelector(`[data-feedback="${q}"]`);
+                let selected = null;
+                for (const radio of radios) {
+                    if (radio.checked) {
+                        selected = radio.value;
+                        break;
+                    }
+                }
+                
+                if (selected === answers[q]) {
+                    feedbackEl.innerText = "Correct!";
+                    feedbackEl.className = 'mt-1 text-sm font-medium text-green-600';
+                } else if (selected) {
+                    feedbackEl.innerText = `Incorrect. The correct answer is ${answers[q].toUpperCase()}.`;
+                    feedbackEl.className = 'mt-1 text-sm font-medium text-red-600';
+                } else {
+                    feedbackEl.innerText = "Please select an answer.";
+                    feedbackEl.className = 'mt-1 text-sm font-medium text-gray-500';
+                }
+            }
+        };
+
+        // --- Start ---
+        window.onload = init;
+        window.onresize = () => {
+            resizeCanvas();
+            drawPopulation(); // Redraw on resize
+        };
+
+    </script>
+
+</body>
+</html>
+
